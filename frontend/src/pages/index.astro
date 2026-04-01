@@ -1,0 +1,98 @@
+---
+import '../styles/global.css';
+import EdgeDashboard from "../components/EdgeDashboard.jsx";
+---
+
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Edge Node Control Center" />
+    <title>Edge I/O Simulator</title>
+  </head>
+
+  <body class="min-h-screen bg-gray-950 text-gray-100 font-mono overflow-x-hidden">
+
+    <!-- Ambient scanline overlay -->
+    <div
+      class="pointer-events-none fixed inset-0 z-50 opacity-[0.015]"
+      style="background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.3) 2px, rgba(0,0,0,0.3) 4px);"
+      aria-hidden="true"
+    ></div>
+
+    <!-- Header -->
+    <header class="relative z-10 border-b border-gray-800/60 bg-gray-950/90 backdrop-blur-md">
+      <div class="max-w-screen-2xl mx-auto px-6 py-4 flex items-center justify-between">
+
+        <!-- Logo + Title -->
+        <div class="flex items-center gap-4">
+          <div class="relative w-10 h-10 flex items-center justify-center">
+            <!-- CPU chip icon -->
+            <svg viewBox="0 0 40 40" class="w-10 h-10" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="10" y="10" width="20" height="20" rx="2" stroke="#6366f1" stroke-width="1.5" fill="none"/>
+              <rect x="13" y="13" width="14" height="14" rx="1" fill="#6366f1" fill-opacity="0.15" stroke="#6366f1" stroke-width="1"/>
+              <!-- Pin lines -->
+              <line x1="14" y1="10" x2="14" y2="5" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="20" y1="10" x2="20" y2="5" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="26" y1="10" x2="26" y2="5" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="14" y1="30" x2="14" y2="35" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="20" y1="30" x2="20" y2="35" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="26" y1="30" x2="26" y2="35" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="10" y1="14" x2="5" y2="14" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="10" y1="20" x2="5" y2="20" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="10" y1="26" x2="5" y2="26" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="30" y1="14" x2="35" y2="14" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="30" y1="20" x2="35" y2="20" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="30" y1="26" x2="35" y2="26" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round"/>
+              <!-- Inner dot grid -->
+              <circle cx="17" cy="17" r="1.2" fill="#6366f1" opacity="0.6"/>
+              <circle cx="20" cy="17" r="1.2" fill="#6366f1" opacity="0.6"/>
+              <circle cx="23" cy="17" r="1.2" fill="#6366f1" opacity="0.6"/>
+              <circle cx="17" cy="20" r="1.2" fill="#6366f1"/>
+              <circle cx="20" cy="20" r="1.8" fill="#6366f1"/>
+              <circle cx="23" cy="20" r="1.2" fill="#6366f1"/>
+              <circle cx="17" cy="23" r="1.2" fill="#6366f1" opacity="0.6"/>
+              <circle cx="20" cy="23" r="1.2" fill="#6366f1" opacity="0.6"/>
+              <circle cx="23" cy="23" r="1.2" fill="#6366f1" opacity="0.6"/>
+            </svg>
+          </div>
+
+          <div>
+            <h1 class="text-lg font-semibold tracking-widest text-gray-100 uppercase">
+              <span class="text-indigo-400">EDGE</span>
+              <span class="text-gray-400 mx-1">/</span>
+              I/O Simulator
+            </h1>
+            <p class="text-[11px] text-gray-500 tracking-wider">
+              POLLING &nbsp;·&nbsp; INTERRUPTS &nbsp;·&nbsp; DMA &nbsp;—&nbsp; Real-time Analytics
+            </p>
+          </div>
+        </div>
+
+        <!-- Status bar -->
+        <div class="hidden md:flex flex-col items-end gap-1 text-[11px] text-gray-500">
+          <div class="flex items-center gap-1.5 text-emerald-500 font-bold">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse"></span>
+            Backend API Online
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-gray-600">v1.0.0</span> <span class="text-gray-600">|</span> <span class="text-gray-600">Offline Demo</span>
+          </div>
+        </div>
+
+      </div>
+    </header>
+
+    <!-- Main content: React Island -->
+    <main class="relative z-10 max-w-screen-2xl mx-auto px-4 py-6 md:px-6">
+      <EdgeDashboard client:load />
+    </main>
+
+    <!-- Footer -->
+    <footer class="relative z-10 border-t border-gray-800/40 mt-12 py-4 text-center text-[11px] text-gray-600">
+      Edge I/O Simulator &mdash; Arquitectura de Sistemas
+    </footer>
+
+  </body>
+</html>
