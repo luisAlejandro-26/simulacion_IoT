@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -30,6 +30,8 @@ function normalizeMetrics(raw) {
     throughput: Number(
       raw.throughput_por_segundo ?? raw.throughput_per_second ?? raw.throughput ?? 0
     ),
+    interruptsTotal: Number(raw.interrupts_received ?? 0),
+    dmaInterruptsTotal: Number(raw.dma_interrupts_received ?? 0),
   };
 }
 
@@ -41,6 +43,7 @@ export default function EdgeDashboard() {
   const [strategyLoading, setStrategyLoading] = useState(false);
   const [activeProfile, setActiveProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  const prevIrqRef = useRef({ interrupts: 0, dmaInterrupts: 0 });
 
   useEffect(() => {
     let cancelled = false;
@@ -86,6 +89,11 @@ export default function EdgeDashboard() {
         const m = normalizeMetrics(raw);
         const label = new Date().toLocaleTimeString();
 
+        const prev = prevIrqRef.current;
+        const irqDelta = Math.max(0, m.interruptsTotal - prev.interrupts);
+        const dmaIrqDelta = Math.max(0, m.dmaInterruptsTotal - prev.dmaInterrupts);
+        prevIrqRef.current = { interrupts: m.interruptsTotal, dmaInterrupts: m.dmaInterruptsTotal };
+
         setSeries((prev) => {
           const next = [
             ...prev,
@@ -94,6 +102,8 @@ export default function EdgeDashboard() {
               cpu: m.cpuPercent,
               latency: m.latencyMs,
               throughput: m.throughput,
+              irq: irqDelta,
+              dmaIrq: dmaIrqDelta,
             },
           ];
           return next.length > HISTORY_MAX ? next.slice(-HISTORY_MAX) : next;
@@ -194,14 +204,14 @@ export default function EdgeDashboard() {
         {strategyError && (
           <div className="rounded bg-red-950/40 border border-red-900/50 px-4 py-3 text-xs text-red-400 flex items-center gap-3">
             <div className="terminal-dot bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div>
-            <strong>STRATEGY ERROR:</strong> {strategyError}
+            <strong>ERROR DE ESTRATEGIA:</strong> {strategyError}
           </div>
         )}
 
         {metricsError && (
           <div className="rounded bg-yellow-950/40 border border-yellow-900/50 px-4 py-3 text-xs text-yellow-400 flex items-center gap-3">
             <div className="terminal-dot bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.8)]"></div>
-            <strong>METRICS UNAVAILABLE:</strong> {metricsError} — Charts show last known data.
+            <strong>MÉTRICAS NO DISPONIBLES:</strong> {metricsError} — Se muestran los últimos datos conocidos.
           </div>
         )}
 
@@ -217,15 +227,15 @@ export default function EdgeDashboard() {
                 <div className="terminal-dot bg-green-500" />
                 <span className="ml-2 text-xs text-gray-500 tracking-widest uppercase flex items-center gap-2">
                   <div className={`w-2 h-2 rounded-full ${activeStrategy ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]' : 'bg-gray-500'}`}></div>
-                  Control Panel
+                  Panel de Control
                 </span>
                 <span className="ml-auto text-[10px] tracking-widest text-gray-600">
-                  {activeStrategy ? "ONLINE" : "IDLE"}
+                  {activeStrategy ? "EN LÍNEA" : "INACTIVO"}
                 </span>
               </div>
               <div className="p-4 flex flex-col gap-6 flex-1">
                 <div>
-                  <span className="text-[10px] text-gray-500 mb-3 tracking-widest block font-bold">I/O STRATEGY</span>
+                  <span className="text-[10px] text-gray-500 mb-3 tracking-widest block font-bold">ESTRATEGIA DE E/S</span>
                   <div className="grid grid-cols-1 gap-3">
                     <button
                       type="button"
@@ -241,7 +251,7 @@ export default function EdgeDashboard() {
                       className={getBtnClass("interrupt")}
                       onClick={() => postStrategy("interrupt")}
                     >
-                      INTERRUPTS
+                      INTERRUPCIONES
                     </button>
                     <button
                       type="button"
@@ -263,7 +273,7 @@ export default function EdgeDashboard() {
                       className={getProfileClass("temperature")}
                       onClick={() => postProfile("temperature")}
                     >
-                      [TEMP] LOW-FREQ
+                      [TEMP] BAJA FREC.
                     </button>
                     <button
                       type="button"
@@ -271,18 +281,18 @@ export default function EdgeDashboard() {
                       className={getProfileClass("camera")}
                       onClick={() => postProfile("camera")}
                     >
-                      [CAM] HIGH-BW
+                      [CAM] ALTO ANCHO DE BANDA
                     </button>
                   </div>
                 </div>
 
                 <div className="pt-4 border-t border-gray-800/80">
-                  <span className="text-[10px] text-gray-500 mb-3 block tracking-widest font-bold">ACTIVE PROCESS</span>
+                  <span className="text-[10px] text-gray-500 mb-3 block tracking-widest font-bold">PROCESO ACTIVO</span>
                   <div className="bg-[#0a0f18]/50 border border-gray-800 rounded p-4 text-[11px] text-gray-400 leading-relaxed shadow-inner min-h-[6rem] flex flex-col justify-center">
-                    {activeStrategy === 'polling' && <p className="text-red-400 font-medium neon-text-red">{'>>'} Continuous checking of registers. High CPU usage. Blocking paradigm.</p>}
-                    {activeStrategy === 'interrupt' && <p className="text-blue-400 font-medium neon-text-blue">{'>>'} Event-driven. CPU sleeps/freed until hardware sensor triggers an IRQ line.</p>}
-                    {activeStrategy === 'dma' && <p className="text-purple-400 font-medium neon-text-purple">{'>>'} Direct Memory Access. Hardware controller handles transfer. Zero CPU overhead.</p>}
-                    {!activeStrategy && <p className="opacity-50 text-center uppercase tracking-widest">Awaiting strategy<span className="animate-pulse">...</span></p>}
+                    {activeStrategy === 'polling' && <p className="text-red-400 font-medium neon-text-red">{'>>'} Consulta continua de registros. Alto uso de CPU. Paradigma bloqueante.</p>}
+                    {activeStrategy === 'interrupt' && <p className="text-blue-400 font-medium neon-text-blue">{'>>'} Basado en eventos. El CPU duerme/queda libre hasta que el sensor dispara una línea IRQ.</p>}
+                    {activeStrategy === 'dma' && <p className="text-purple-400 font-medium neon-text-purple">{'>>'} Acceso Directo a Memoria. El controlador de hardware gestiona la transferencia. Cero carga en CPU.</p>}
+                    {!activeStrategy && <p className="opacity-50 text-center uppercase tracking-widest">Esperando estrategia<span className="animate-pulse">...</span></p>}
                   </div>
                 </div>
               </div>
@@ -292,9 +302,9 @@ export default function EdgeDashboard() {
           {/* Right Column: Graphs */}
           <div className="lg:col-span-9 flex flex-col gap-6">
              <div className="w-full">
-                <DashboardPanel title="SYSTEM RESOURCES - CPU" dotColor={activeStrategy === 'polling' ? 'red' : 'green'}>
+                <DashboardPanel title="RECURSOS DEL SISTEMA - CPU" dotColor={activeStrategy === 'polling' ? 'red' : 'green'}>
                   <div className="flex justify-between items-center mb-6">
-                    <span className="text-[10px] text-gray-500 tracking-widest font-bold">CPU USAGE (%)</span>
+                    <span className="text-[10px] text-gray-500 tracking-widest font-bold">USO DE CPU (%)</span>
                     <span className={`text-2xl font-black ${activeStrategy === 'polling' ? 'neon-text-red text-red-500' : 'neon-text-green text-green-500'}`}>
                       {series.length ? Number(series[series.length-1].cpu).toFixed(1) : 0}%
                     </span>
@@ -321,10 +331,55 @@ export default function EdgeDashboard() {
                 </DashboardPanel>
              </div>
 
+             {activeStrategy && activeStrategy !== "polling" && (
+               <div className="w-full">
+                 <DashboardPanel title="LÍNEA DE TIEMPO IRQ" dotColor={activeStrategy === 'dma' ? 'purple' : 'blue'}>
+                   <div className="flex items-center gap-4 mb-2">
+                     <span className="text-[10px] text-gray-500 tracking-widest font-bold">SOLICITUDES DE INTERRUPCIÓN</span>
+                     <span className="text-[10px] text-gray-600 tracking-wide">cada marca = IRQ disparada</span>
+                   </div>
+                   <div className="w-full overflow-hidden" style={{ height: 48 }}>
+                     <div className="flex items-end h-full gap-[2px]">
+                       {series.map((point, i) => {
+                         const hasIrq = point.irq > 0;
+                         const hasDmaIrq = point.dmaIrq > 0;
+                         const active = hasIrq || hasDmaIrq;
+                         const color = hasDmaIrq ? "#a855f7" : "#3b82f6";
+                         return (
+                           <div
+                             key={i}
+                             className="flex-1 flex flex-col items-center justify-end h-full"
+                             title={active ? `${point.t} — IRQ` : point.t}
+                           >
+                             {active ? (
+                               <div
+                                 className="w-full rounded-sm"
+                                 style={{
+                                   height: 28,
+                                   backgroundColor: color,
+                                   boxShadow: `0 0 8px ${color}80`,
+                                   opacity: 0.9,
+                                 }}
+                               />
+                             ) : (
+                               <div
+                                 className="w-full rounded-sm"
+                                 style={{ height: 4, backgroundColor: "#1f2937" }}
+                               />
+                             )}
+                           </div>
+                         );
+                       })}
+                     </div>
+                   </div>
+                 </DashboardPanel>
+               </div>
+             )}
+
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <DashboardPanel title="NETWORK.LATENCY" dotColor="blue">
+                <DashboardPanel title="RED.LATENCIA" dotColor="blue">
                   <div className="flex justify-between items-center mb-6">
-                    <span className="text-[10px] text-gray-500 tracking-widest font-bold">LATENCY (ms)</span>
+                    <span className="text-[10px] text-gray-500 tracking-widest font-bold">LATENCIA (ms)</span>
                     <span className="text-xl font-black text-blue-400 neon-text-blue">
                       {series.length ? Number(series[series.length-1].latency).toFixed(1) : 0}ms
                     </span>
@@ -337,16 +392,16 @@ export default function EdgeDashboard() {
                       <Tooltip
                         contentStyle={{ backgroundColor: "#02040a", border: "1px solid #1f2937", borderRadius: "4px", fontSize: "12px", fontFamily: "monospace" }}
                         itemStyle={{ color: "#3b82f6", fontWeight: "bold" }}
-                        formatter={(v) => [`${Number(v).toFixed(2)} ms`, "Latency"]}
+                        formatter={(v) => [`${Number(v).toFixed(2)} ms`, "Latencia"]}
                       />
                       <Line type="stepAfter" dataKey="latency" stroke="#3b82f6" strokeWidth={2} dot={false} isAnimationActive={false} />
                     </LineChart>
                   </ResponsiveContainer>
                 </DashboardPanel>
 
-                <DashboardPanel title="DB.THROUGHPUT" dotColor="purple">
+                <DashboardPanel title="BD.RENDIMIENTO" dotColor="purple">
                   <div className="flex justify-between items-center mb-6">
-                    <span className="text-[10px] text-gray-500 tracking-widest font-bold">THROUGHPUT (rows/s)</span>
+                    <span className="text-[10px] text-gray-500 tracking-widest font-bold">RENDIMIENTO (filas/s)</span>
                     <span className="text-xl font-black text-purple-400 neon-text-purple">
                       {series.length ? Number(series[series.length-1].throughput).toFixed(1) : 0}/s
                     </span>
@@ -360,7 +415,7 @@ export default function EdgeDashboard() {
                         contentStyle={{ backgroundColor: "#02040a", border: "1px solid #1f2937", borderRadius: "4px", fontSize: "12px", fontFamily: "monospace" }}
                         itemStyle={{ color: "#a855f7", fontWeight: "bold" }}
                         cursor={{ fill: '#1f2937', opacity: 0.4 }}
-                        formatter={(v) => [`${Number(v).toFixed(2)} /s`, "Throughput"]}
+                        formatter={(v) => [`${Number(v).toFixed(2)} /s`, "Rendimiento"]}
                       />
                       <Bar dataKey="throughput" fill="#a855f7" radius={[2, 2, 0, 0]} isAnimationActive={false} />
                     </BarChart>

@@ -123,8 +123,7 @@ class CPU:
         self._stats.polling_busy_iterations += 1
         self._loop_counter += 1
 
-        if self._loop_counter % self._cooperative_yield_every == 0:
-            await asyncio.sleep(0)
+        await asyncio.sleep(0)
 
     async def wait_idle(self, duration_s: float) -> None:
         """

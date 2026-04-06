@@ -29,7 +29,7 @@ _repo = CloudRepository(DB_PATH)
 
 # --- INSTANCIAR COMPONENTES DEL SIMULADOR ---
 _ring_buffer = RingBuffer[SensorSample](capacity=100)
-_sensor_sim = SensorSimulator(temperature_period_s=0.5, image_period_s=0.08)
+_sensor_sim = SensorSimulator(temperature_period_s=5, image_period_s=10)
 _cpu = CPU(io_mode="polling")
 _dma_controller = DMAController(ring_buffer=_ring_buffer, block_size=12, cpu=_cpu)
 _io_manager = IOManager(ring_buffer=_ring_buffer, cpu=_cpu, dma_engine=_dma_controller)
@@ -98,12 +98,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:4321",
-        "http://127.0.0.1:4321",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -152,16 +147,25 @@ async def _wrapped_process_sample(sample: SensorSample, source: str) -> None:
 
 _cpu.process_sample = _wrapped_process_sample
 
+def _metrics_with_irq() -> dict[str, float]:
+    """Snapshot de métricas + contadores de IRQ del CPU simulado."""
+    snap = _metrics.snapshot()
+    stats = _cpu.stats
+    snap["interrupts_received"] = stats.interrupts_received
+    snap["dma_interrupts_received"] = stats.dma_interrupts_received
+    return snap
+
+
 @app.get("/metricas")
 async def metricas() -> dict[str, float]:
     """Módulo 7: latencia media, CPU, throughput."""
-    return _metrics.snapshot()
+    return _metrics_with_irq()
 
 
 @app.get("/metrics")
 async def metrics_alias() -> dict[str, float]:
     """Alias para dashboard."""
-    return _metrics.snapshot()
+    return _metrics_with_irq()
 
 
 @app.get("/strategy")
