@@ -108,8 +108,13 @@ class DMAController:
             block: list[SensorSample] = [first]
             while len(block) < self._block_size:
                 try:
-                    block.append(self._ingress.get_nowait())
-                except asyncio.QueueEmpty:
+                    # Esperamos obligatoriamente hasta el _flush_interval_s por la siguiente muestra
+                    nxt = await asyncio.wait_for(
+                        self._ingress.get(),
+                        timeout=self._flush_interval_s
+                    )
+                    block.append(nxt)
+                except asyncio.TimeoutError:
                     break
 
             # Transferencia “por hardware”: el CPU principal no mueve el bloque.

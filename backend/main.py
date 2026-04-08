@@ -47,6 +47,7 @@ _sensor_sim = SensorSimulator()
 _sensor_sim.register_profile(SensorProfile("temperature", period_s=5, factory=_make_temperature_factory()))
 _sensor_sim.register_profile(SensorProfile("camera", period_s=10, factory=_make_camera_factory()))
 
+_sensor_sim = SensorSimulator(temperature_period_s=5, image_period_s=0.8)
 _cpu = CPU(io_mode="polling")
 _dma_controller = DMAController(ring_buffer=_ring_buffer, block_size=12, cpu=_cpu)
 _io_manager = IOManager(ring_buffer=_ring_buffer, cpu=_cpu, dma_engine=_dma_controller)
@@ -216,6 +217,7 @@ def _metrics_with_irq() -> dict[str, float]:
     stats = _cpu.stats
     snap["interrupts_received"] = stats.interrupts_received
     snap["dma_interrupts_received"] = stats.dma_interrupts_received
+    snap["paquetes_perdidos"] = _ring_buffer.stats.overwritten_items
     return snap
 
 
