@@ -32,6 +32,7 @@ function normalizeMetrics(raw) {
     ),
     interruptsTotal: Number(raw.interrupts_received ?? 0),
     dmaInterruptsTotal: Number(raw.dma_interrupts_received ?? 0),
+    lostPackets: Number(raw.paquetes_perdidos ?? 0),
   };
 }
 
@@ -104,6 +105,7 @@ export default function EdgeDashboard() {
               throughput: m.throughput,
               irq: irqDelta,
               dmaIrq: dmaIrqDelta,
+              lostPackets: m.lostPackets,
             },
           ];
           return next.length > HISTORY_MAX ? next.slice(-HISTORY_MAX) : next;
@@ -376,7 +378,7 @@ export default function EdgeDashboard() {
                </div>
              )}
 
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <div className="grid grid-cols-1 xl:grid-cols-3 lg:grid-cols-2 gap-6">
                 <DashboardPanel title="RED.LATENCIA" dotColor="blue">
                   <div className="flex justify-between items-center mb-6">
                     <span className="text-[10px] text-gray-500 tracking-widest font-bold">LATENCIA (ms)</span>
@@ -419,6 +421,34 @@ export default function EdgeDashboard() {
                       />
                       <Bar dataKey="throughput" fill="#a855f7" radius={[2, 2, 0, 0]} isAnimationActive={false} />
                     </BarChart>
+                  </ResponsiveContainer>
+                </DashboardPanel>
+
+                <DashboardPanel title="BUFFER.PAQUETES PERDIDOS" dotColor="red">
+                  <div className="flex justify-between items-center mb-6">
+                    <span className="text-[10px] text-gray-500 tracking-widest font-bold">SOBREESCRITOS (Total)</span>
+                    <span className="text-xl font-black text-red-500 neon-text-red">
+                      {series.length ? Number(series[series.length-1].lostPackets) : 0}
+                    </span>
+                  </div>
+                  <ResponsiveContainer width="100%" height={160}>
+                    <AreaChart data={series} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="lostFill" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#ef4444" stopOpacity={0.6} />
+                          <stop offset="100%" stopColor="#0a0f18" stopOpacity={0.0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="2 2" stroke="#1f2937" vertical={false} />
+                      <XAxis dataKey="t" tick={false} tickLine={false} axisLine={false} />
+                      <YAxis tick={{ fontSize: 10, fill: "#4b5563" }} tickLine={false} axisLine={false} width={40} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: "#02040a", border: "1px solid #1f2937", borderRadius: "4px", fontSize: "12px", fontFamily: "monospace" }}
+                        itemStyle={{ color: "#ef4444", fontWeight: "bold" }}
+                        formatter={(v) => [`${v} perdidos`, "Backpressure"]}
+                      />
+                      <Area type="stepAfter" dataKey="lostPackets" stroke="#ef4444" strokeWidth={2} fill="url(#lostFill)" isAnimationActive={false} />
+                    </AreaChart>
                   </ResponsiveContainer>
                 </DashboardPanel>
              </div>
