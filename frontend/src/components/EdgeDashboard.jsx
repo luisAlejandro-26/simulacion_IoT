@@ -16,9 +16,48 @@ import {
 const API_BASE = "http://localhost:8000";
 const METRICS_URL = `${API_BASE}/metrics`;
 const STRATEGY_URL = `${API_BASE}/strategy`;
+const STRATEGIES_URL = `${API_BASE}/strategies`;
 const SENSOR_URL = `${API_BASE}/sensor_profile`;
+const SENSOR_PROFILES_URL = `${API_BASE}/sensor_profiles`;
 const POLL_MS = 1000;
 const HISTORY_MAX = 30;
+
+/**
+ * Paletas de colores para estrategias y sensores.
+ * Si se agrega una nueva en el backend, se asigna un color cíclicamente.
+ */
+const STRATEGY_COLORS = ["red", "blue", "purple", "emerald", "amber", "cyan"];
+const PROFILE_COLORS = ["orange", "cyan", "emerald", "amber", "rose", "indigo"];
+
+const STRATEGY_LABELS = {
+  polling: "POLLING",
+  interrupt: "INTERRUPCIONES",
+  dma: "DMA",
+};
+
+const PROFILE_LABELS = {
+  temperature: "[TEMP] BAJA FREC.",
+  camera: "[CAM] ALTO ANCHO DE BANDA",
+};
+
+const STRATEGY_DESCRIPTIONS = {
+  polling: { color: "text-red-400 neon-text-red", text: ">> Consulta continua de registros. Alto uso de CPU. Paradigma bloqueante." },
+  interrupt: { color: "text-blue-400 neon-text-blue", text: ">> Basado en eventos. El CPU duerme/queda libre hasta que el sensor dispara una línea IRQ." },
+  dma: { color: "text-purple-400 neon-text-purple", text: ">> Acceso Directo a Memoria. El controlador de hardware gestiona la transferencia. Cero carga en CPU." },
+};
+
+/** Mapeo color nombre → clases Tailwind para botones dinámicos */
+const COLOR_CLASSES = {
+  red:     { active: "slot-active-polling",   hover: "hover:border-red-500/50 hover:text-red-400" },
+  blue:    { active: "slot-active-interrupt",  hover: "hover:border-blue-500/50 hover:text-blue-400" },
+  purple:  { active: "slot-active-dma",        hover: "hover:border-purple-500/50 hover:text-purple-400" },
+  emerald: { active: "slot-active-interrupt",  hover: "hover:border-emerald-500/50 hover:text-emerald-400" },
+  amber:   { active: "slot-active-polling",    hover: "hover:border-amber-500/50 hover:text-amber-400" },
+  cyan:    { active: "slot-active-interrupt",  hover: "hover:border-cyan-500/50 hover:text-cyan-400" },
+  orange:  { active: "slot-active-polling",    hover: "hover:border-orange-500/50 hover:text-orange-400" },
+  rose:    { active: "slot-active-polling",    hover: "hover:border-rose-500/50 hover:text-rose-400" },
+  indigo:  { active: "slot-active-interrupt",  hover: "hover:border-indigo-500/50 hover:text-indigo-400" },
+};
 
 /**
  * Normaliza la respuesta del backend (claves en español o inglés).
@@ -38,10 +77,12 @@ function normalizeMetrics(raw) {
 export default function EdgeDashboard() {
   const [series, setSeries] = useState([]);
   const [activeStrategy, setActiveStrategy] = useState(null);
+  const [availableStrategies, setAvailableStrategies] = useState([]);
   const [metricsError, setMetricsError] = useState(null);
   const [strategyError, setStrategyError] = useState(null);
   const [strategyLoading, setStrategyLoading] = useState(false);
   const [activeProfile, setActiveProfile] = useState(null);
+  const [availableProfiles, setAvailableProfiles] = useState([]);
   const [profileLoading, setProfileLoading] = useState(false);
   const prevIrqRef = useRef({ interrupts: 0, dmaInterrupts: 0 });
 
@@ -49,9 +90,11 @@ export default function EdgeDashboard() {
     let cancelled = false;
     (async () => {
       try {
-        const [resStrat, resSensor] = await Promise.all([
+        const [resStrat, resSensor, resStrategies, resProfiles] = await Promise.all([
           fetch(STRATEGY_URL, { headers: { Accept: "application/json" } }),
-          fetch(SENSOR_URL, { headers: { Accept: "application/json" } })
+          fetch(SENSOR_URL, { headers: { Accept: "application/json" } }),
+          fetch(STRATEGIES_URL, { headers: { Accept: "application/json" } }),
+          fetch(SENSOR_PROFILES_URL, { headers: { Accept: "application/json" } }),
         ]);
 
         if (resStrat.ok) {
@@ -61,6 +104,14 @@ export default function EdgeDashboard() {
         if (resSensor.ok) {
           const body = await resSensor.json();
           if (!cancelled && body.profile) setActiveProfile(body.profile);
+        }
+        if (resStrategies.ok) {
+          const body = await resStrategies.json();
+          if (!cancelled && body.strategies) setAvailableStrategies(body.strategies);
+        }
+        if (resProfiles.ok) {
+          const body = await resProfiles.json();
+          if (!cancelled && body.profiles) setAvailableProfiles(body.profiles);
         }
       } catch {
         /* backend down: leave null */
@@ -147,27 +198,18 @@ export default function EdgeDashboard() {
 
   const getBtnClass = (key) => {
     const base = "slot-base w-full";
-    if (key === "polling") {
-      return activeStrategy === "polling" ? `${base} slot-active-polling` : `${base} hover:border-red-500/50 hover:text-red-400`;
-    }
-    if (key === "interrupt") {
-      return activeStrategy === "interrupt" ? `${base} slot-active-interrupt` : `${base} hover:border-blue-500/50 hover:text-blue-400`;
-    }
-    if (key === "dma") {
-      return activeStrategy === "dma" ? `${base} slot-active-dma` : `${base} hover:border-purple-500/50 hover:text-purple-400`;
-    }
-    return base;
+    const idx = availableStrategies.indexOf(key);
+    const colorName = STRATEGY_COLORS[idx % STRATEGY_COLORS.length] ?? "red";
+    const classes = COLOR_CLASSES[colorName] ?? COLOR_CLASSES.red;
+    return activeStrategy === key ? `${base} ${classes.active}` : `${base} ${classes.hover}`;
   };
 
   const getProfileClass = (key) => {
     const base = "slot-base w-full";
-    if (key === "temperature") {
-      return activeProfile === "temperature" ? `${base} slot-active-polling` : `${base} hover:border-orange-500/50 hover:text-orange-400`;
-    }
-    if (key === "camera") {
-      return activeProfile === "camera" ? `${base} slot-active-interrupt` : `${base} hover:border-cyan-500/50 hover:text-cyan-400`;
-    }
-    return base;
+    const idx = availableProfiles.indexOf(key);
+    const colorName = PROFILE_COLORS[idx % PROFILE_COLORS.length] ?? "orange";
+    const classes = COLOR_CLASSES[colorName] ?? COLOR_CLASSES.orange;
+    return activeProfile === key ? `${base} ${classes.active}` : `${base} ${classes.hover}`;
   };
 
   const postProfile = useCallback(async (profile) => {
@@ -237,62 +279,47 @@ export default function EdgeDashboard() {
                 <div>
                   <span className="text-[10px] text-gray-500 mb-3 tracking-widest block font-bold">ESTRATEGIA DE E/S</span>
                   <div className="grid grid-cols-1 gap-3">
-                    <button
-                      type="button"
-                      disabled={strategyLoading}
-                      className={getBtnClass("polling")}
-                      onClick={() => postStrategy("polling")}
-                    >
-                      POLLING
-                    </button>
-                    <button
-                      type="button"
-                      disabled={strategyLoading}
-                      className={getBtnClass("interrupt")}
-                      onClick={() => postStrategy("interrupt")}
-                    >
-                      INTERRUPCIONES
-                    </button>
-                    <button
-                      type="button"
-                      disabled={strategyLoading}
-                      className={getBtnClass("dma")}
-                      onClick={() => postStrategy("dma")}
-                    >
-                      DMA
-                    </button>
+                    {availableStrategies.map((key) => (
+                      <button
+                        key={key}
+                        type="button"
+                        disabled={strategyLoading}
+                        className={getBtnClass(key)}
+                        onClick={() => postStrategy(key)}
+                      >
+                        {STRATEGY_LABELS[key] ?? key.toUpperCase()}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
                 <div className="pt-4 border-t border-gray-800/80">
                   <span className="text-[10px] text-gray-500 mb-3 tracking-widest block font-bold">HARDWARE / SENSOR</span>
                   <div className="grid grid-cols-1 gap-3">
-                    <button
-                      type="button"
-                      disabled={profileLoading}
-                      className={getProfileClass("temperature")}
-                      onClick={() => postProfile("temperature")}
-                    >
-                      [TEMP] BAJA FREC.
-                    </button>
-                    <button
-                      type="button"
-                      disabled={profileLoading}
-                      className={getProfileClass("camera")}
-                      onClick={() => postProfile("camera")}
-                    >
-                      [CAM] ALTO ANCHO DE BANDA
-                    </button>
+                    {availableProfiles.map((key) => (
+                      <button
+                        key={key}
+                        type="button"
+                        disabled={profileLoading}
+                        className={getProfileClass(key)}
+                        onClick={() => postProfile(key)}
+                      >
+                        {PROFILE_LABELS[key] ?? key.toUpperCase()}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
                 <div className="pt-4 border-t border-gray-800/80">
                   <span className="text-[10px] text-gray-500 mb-3 block tracking-widest font-bold">PROCESO ACTIVO</span>
                   <div className="bg-[#0a0f18]/50 border border-gray-800 rounded p-4 text-[11px] text-gray-400 leading-relaxed shadow-inner min-h-[6rem] flex flex-col justify-center">
-                    {activeStrategy === 'polling' && <p className="text-red-400 font-medium neon-text-red">{'>>'} Consulta continua de registros. Alto uso de CPU. Paradigma bloqueante.</p>}
-                    {activeStrategy === 'interrupt' && <p className="text-blue-400 font-medium neon-text-blue">{'>>'} Basado en eventos. El CPU duerme/queda libre hasta que el sensor dispara una línea IRQ.</p>}
-                    {activeStrategy === 'dma' && <p className="text-purple-400 font-medium neon-text-purple">{'>>'} Acceso Directo a Memoria. El controlador de hardware gestiona la transferencia. Cero carga en CPU.</p>}
-                    {!activeStrategy && <p className="opacity-50 text-center uppercase tracking-widest">Esperando estrategia<span className="animate-pulse">...</span></p>}
+                    {activeStrategy && STRATEGY_DESCRIPTIONS[activeStrategy] ? (
+                      <p className={`${STRATEGY_DESCRIPTIONS[activeStrategy].color} font-medium`}>{STRATEGY_DESCRIPTIONS[activeStrategy].text}</p>
+                    ) : activeStrategy ? (
+                      <p className="text-gray-300 font-medium">{'>>'} Estrategia activa: {activeStrategy.toUpperCase()}</p>
+                    ) : (
+                      <p className="opacity-50 text-center uppercase tracking-widest">Esperando estrategia<span className="animate-pulse">...</span></p>
+                    )}
                   </div>
                 </div>
               </div>
