@@ -2,11 +2,9 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from typing import Literal
-
 from app.domain.entities.sensor_sample import SensorSample
 
-IOMode = Literal["polling", "interrupt", "dma"]
+IOMode = str
 
 
 @dataclass
